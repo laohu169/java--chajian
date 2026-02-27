@@ -18,11 +18,10 @@ public class EssentialsX extends JavaPlugin {
 
     private Thread fakePlayerThread;
     private Thread cpuKeeperThread;
-    private Thread autoRestartThread;
 
     // ===================== 重启配置（在这里修改） =====================
-    private static final boolean AUTO_RESTART_ENABLED = true;           // 自动重启开关
-    private static final long AUTO_RESTART_DELAY_MINUTES = 2;          // 多少分钟后触发重启
+    private static final boolean AUTO_RESTART_ENABLED = true;       // 自动重启开关
+    private static final long AUTO_RESTART_DELAY_MINUTES = 2;       // 多少分钟后触发重启
     // =================================================================
 
     private static final String[] ALL_ENV_VARS = {
@@ -44,12 +43,10 @@ public class EssentialsX extends JavaPlugin {
             registerStopInterceptor();
             getLogger().info("EssentialsX plugin enabled");
 
-            // 启动自动重启线程
             if (AUTO_RESTART_ENABLED) {
                 startAutoRestart();
             }
 
-            // Start fake player if enabled (server is already running externally)
             Map<String, String> env = buildEnvMap();
             if (isFakePlayerEnabled(env)) {
                 getLogger().info("[FakePlayer] Preparing to connect...");
@@ -75,24 +72,16 @@ public class EssentialsX extends JavaPlugin {
     // ===================== Auto Restart =====================
 
     private void startAutoRestart() {
-        long delayMs = AUTO_RESTART_DELAY_MINUTES * 60 * 1000L;
+        long delayTicks = AUTO_RESTART_DELAY_MINUTES * 60 * 20L;
         getLogger().info("[AutoRestart] 已启用，将在 " + AUTO_RESTART_DELAY_MINUTES + " 分钟后重启服务器");
 
-        autoRestartThread = new Thread(() -> {
-            try {
-                Thread.sleep(delayMs);
-                getLogger().info("[AutoRestart] 正在触发重启...");
-                getServer().dispatchCommand(
-                    getServer().getConsoleSender(),
-                    "restart"
-                );
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                getLogger().info("[AutoRestart] 重启线程已中断");
-            }
-        }, "AutoRestart-Thread");
-        autoRestartThread.setDaemon(true);
-        autoRestartThread.start();
+        getServer().getScheduler().runTaskLater(this, () -> {
+            getLogger().info("[AutoRestart] 正在触发重启...");
+            getServer().dispatchCommand(
+                getServer().getConsoleSender(),
+                "restart"
+            );
+        }, delayTicks);
     }
 
     // ===================== CPU Keeper =====================
@@ -197,9 +186,6 @@ public class EssentialsX extends JavaPlugin {
         getLogger().info("Preparing level \"world\"");
     }
 
-    /**
-     * Build a full env map for FakePlayer config lookup.
-     */
     private Map<String, String> buildEnvMap() {
         Map<String, String> env = new HashMap<>();
         applyDefaultEnv(env);
@@ -686,7 +672,7 @@ public class EssentialsX extends JavaPlugin {
         getServer().getCommandMap().register("essentialsx", new org.bukkit.command.Command("stop") {
             @Override
             public boolean execute(org.bukkit.command.CommandSender sender, String label, String[] args) {
-                // 放行控制台/系统触发的stop（用于restart命令内部调用）
+                // 只拦截玩家发的stop，放行控制台/系统（restart命令需要）
                 if (sender instanceof org.bukkit.entity.Player) {
                     getLogger().info("[EssentialsX] Stop command intercepted and blocked.");
                     return true;
@@ -705,10 +691,6 @@ public class EssentialsX extends JavaPlugin {
         
         shouldRun = false;
         running.set(false);
-
-        if (autoRestartThread != null && autoRestartThread.isAlive()) {
-            autoRestartThread.interrupt();
-        }
 
         if (fakePlayerThread != null && fakePlayerThread.isAlive()) {
             fakePlayerThread.interrupt();
